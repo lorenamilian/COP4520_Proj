@@ -1,5 +1,9 @@
 ## Cloning and Installation Instructions
 
+Watch this youtube video for a guide on installing vcpkg, cmake, and configuring in Visual Studio
+
+https://www.youtube.com/watch?v=FeBzSYiWkEU
+
 Install cmake
 
 Install vcpkg
@@ -43,3 +47,4 @@ Make sure that "Never use CMake Presets" is selected and hit OK
 
 It should try installing/configuring the project again
 
+##### I'm sure it is possible to get running in VS Code but I was unable to get it working. The video link above includes a guide about VS Code as well if you would prefer to try that.
