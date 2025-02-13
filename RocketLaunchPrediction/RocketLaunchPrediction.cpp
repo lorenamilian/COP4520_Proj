@@ -1,10 +1,12 @@
-﻿#include <mlpack/core.hpp>
+#include <mlpack/core.hpp>
 #include <mlpack/methods/random_forest/random_forest.hpp>
 #include <iostream>
 #include <mlpack/core/data/split_data.hpp>
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <thread>
+#include <mutex>
 
 
 struct CSVData {
@@ -13,6 +15,14 @@ struct CSVData {
     std::vector<std::string> labels;
     // Columns 5-13 (numerical features) --- skipping the text based data
     arma::mat features;
+};
+
+// Structure to store the best hyperparameters found
+struct BestHyperparams {
+    size_t numClassesForest = 2;
+    size_t numTrees = 50;
+    size_t minimumLeafSize = 1;
+    double bestAccuracy = 0.0;
 };
 
 // This function reads the data from the CSV file and returns it as a CSVData struct.
@@ -79,6 +89,35 @@ CSVData ReadCSV(const std::string& filename) {
     return result;
 }
 
+std::mutex mtx; // Mutex for safe updating of shared variables
+
+// Function to evaluate hyperparameters in parallel
+void EvaluateHyperparameters(const arma::mat& trainFeatures, 
+                             const arma::Row<size_t>& trainLabels, 
+                             const arma::mat& testFeatures, 
+                             const arma::Row<size_t>& testLabels, 
+                             size_t numTrees, size_t minimumLeafSize, 
+                             BestHyperparams& bestParams) 
+{
+    // Train a Random Forest with given hyperparameters
+    mlpack::RandomForest<> rf;
+    rf.Train(trainFeatures, trainLabels, 2, numTrees, minimumLeafSize);
+
+    // Classify test set
+    arma::Row<size_t> predictions;
+    rf.Classify(testFeatures, predictions);
+
+    // Compute accuracy
+    double accuracy = arma::accu(predictions == testLabels) / static_cast<double>(testLabels.n_elem);
+
+    // Safely update best hyperparameters if accuracy is higher
+    std::lock_guard<std::mutex> lock(mtx);
+    if (accuracy > bestParams.bestAccuracy) {
+        bestParams.bestAccuracy = accuracy;
+        bestParams.numTrees = numTrees;
+        bestParams.minimumLeafSize = minimumLeafSize;
+    }
+}
 
 // Main function
 int main() {
@@ -128,15 +167,39 @@ int main() {
     // Split the data into training and testing sets (80% training, 20% testing)
     mlpack::data::Split(features, labels, trainFeatures, testFeatures, trainLabels, testLabels, 0.2);
 
+    // 4. Parallel hyperparameter search
+    BestHyperparams bestParams;
+    std::vector<std::thread> threads;
 
-    // 4. Train and Evaluate the Random Forest Model
-    // Define Random Forest parameters.
-    const size_t numClassesForest = 2;
-    // You can adjust the number of trees, but the model seems accurate as it is.
-    const size_t numTrees = 50;
+    // Hyperparameter ranges
+    std::vector<size_t> numTreesList = {10, 30, 50};
+    std::vector<size_t> minLeafSizeList = {1, 2, 3, 4};
+
+    // Launch threads for each hyperparameter combination
+    for (size_t trees : numTreesList) {
+        for (size_t leafSize : minLeafSizeList) {
+            threads.emplace_back(EvaluateHyperparameters, trainFeatures, trainLabels, 
+                                 testFeatures, testLabels, trees, leafSize, std::ref(bestParams));
+        }
+    }
+
+    // Wait for all threads to finish
+    for (auto& t : threads) {
+        t.join();
+    }
+
+    // Assign the best found hyperparameters
+    const size_t numClassesForest = bestParams.numClassesForest;
+    const size_t numTrees = bestParams.numTrees;
     // Minimum number of points in a leaf.
-    const size_t minimumLeafSize = 1;
+    const size_t minimumLeafSize = bestParams.minimumLeafSize;
 
+
+    std::cout << "Best Hyperparameters Found:\n";
+    std::cout << "Number of Trees: " << numTrees << "\n";
+    std::cout << "Minimum Leaf Size: " << minimumLeafSize << "\n";
+
+    // 5. Train and Evaluate the Random Forest Model
     // Create and train the random forest classifier.
     mlpack::RandomForest<> rf;
     rf.Train(trainFeatures, trainLabels, numClassesForest, numTrees, minimumLeafSize);
@@ -146,7 +209,7 @@ int main() {
     rf.Classify(testFeatures, predictionsForest);
 
 
-    // 5. Confusion Matrix and Metrics
+    // 6. Confusion Matrix and Metrics
     // This is a table of our model's performance.
     arma::Mat<size_t> confusionForest(numClassesForest, numClassesForest, arma::fill::zeros);
     for (size_t i = 0; i < testLabels.n_elem; ++i) {
@@ -169,7 +232,6 @@ int main() {
         }
         std::cout << std::endl;
     }
-
 
     // Metrics Calculations
     arma::vec precisionForest(numClassesForest), recallForest(numClassesForest), f1Forest(numClassesForest);
