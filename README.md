@@ -1,4 +1,4 @@
 # COP4520_Proj
 
 
-Switch to Joey-mlpack branch for mlpack model code and instructions for cloning/installing
+Please switch to Joey-mlpack branch for mlpack model code and instructions for compiling and running the code
