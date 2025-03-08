@@ -1,6 +1,16 @@
 ## Cloning and Installation Instructions
 
-Watch this youtube video for a guide on installing vcpkg, cmake, and configuring in Visual Studio
+General Instuctions/Dependencies
+
+You will need mlpack, armadillo, openblas, and ensmallen to run this C++ project.
+
+
+
+## Detailed instructions to run the project in Visual Studio
+
+Watch this youtube video for a guide on installing vcpkg, cmake, and configuring in Visual Studio if needed
+
+Code can be ruin in Visual Studio Code of course, but I had some trouble getting that to work, so I used Visual Studio
 
 https://www.youtube.com/watch?v=FeBzSYiWkEU
 
@@ -21,17 +31,7 @@ Download Visual Studio (not VS Code) - should be free for students
 
 Install C++ package (Create new project -> Install more tools and features -> Desktop development with C++ -> Modify
 
-Open visual studio and select clone a repository and enter the URL
-
-Hit clone
-
 ## To run the code you will need to switch the the Joey-mlpack branch
-
-On the top toolbar click Git-> Manage Branches
-
-On the left hand side of the window select remotes/origin->Joey-mlpack
-
-This should switch you to the branch that contains the mlpack project
 
 Cmake should automatically install and configure the project for you if it is configured correctly on your machine
 
