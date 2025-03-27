@@ -123,6 +123,8 @@ void EvaluateHyperparameters(const arma::mat& trainFeatures,
     }
 }
 
+
+// pull weather data from Open Weather Map API
 arma::vec GetWeatherFeaturesForLaunchPad(int pad) {
     // coordinates for the launch pads
     double lat, lon;
@@ -163,24 +165,23 @@ arma::vec GetWeatherFeaturesForLaunchPad(int pad) {
     json j = json::parse(r.text);
 
     // Prepare a feature vector with 9 elements.
-    // We want to extract the following (example mapping):
-    // Index 0: longitude (as a feature)
-    // Index 1: dew point (from current.dew_point)
-    // Index 2: surface pressure (from current.pressure)
-    // Index 3: cloud cover percentage (from current.clouds)
+   
+    // Index 0: longitude 
+    // Index 1: dew point 
+    // Index 2: surface pressure 
+    // Index 3: cloud cover percentage 
     // Index 4: wind speed at 10m (from current.wind_speed)
-    // Index 5: wind gust at 10m (from current.wind_gust, if exists; else use wind_speed)
-    // Index 6: wind speed at 100m (not provided; use wind_speed)
-    // Index 7: wind gust at 100m (not provided; use wind_gust or wind_speed)
-    // Index 8: boundary layer height (not provided; use default value, e.g. 500)
+    // Index 5: wind gust at 10m 
+    // Index 6: wind speed at 100m 
+    // Index 7: wind gust at 100m 
+    // Index 8: boundary layer height
     arma::vec features(9);
     features(0) = lon;
     features(1) = j["current"]["dew_point"];
     features(2) = j["current"]["pressure"];
-    features(3) = j["current"]["clouds"]; // corrected: from current.clouds, not from a "clouds" object
+    features(3) = j["current"]["clouds"]; // from current.clouds
     features(4) = j["current"]["wind_speed"];
 
-    // Use wind gust if available; otherwise default to wind_speed.
     if (j["current"].contains("wind_gust"))
         features(5) = j["current"]["wind_gust"];
     else
@@ -355,9 +356,11 @@ int main() {
     std::cout << "\nOverall Accuracy - Forest: " << accuracyForest << std::endl;
 
 
-    // ----------------------
-        // Text-Based Prediction Interface
-        // ----------------------
+
+
+
+
+    // Text-Based Prediction Interface
     bool exitInterface = false;
     while (!exitInterface) {
         std::cout << "\n=== Launch Prediction Interface ===" << std::endl;
@@ -386,9 +389,6 @@ int main() {
         }
         // Normalize the live features in the same way as training.
         liveFeatures = arma::normalise(liveFeatures, 2, 0);
-
-
-
 
 
         // Convert to an Armadillo matrix with one column.
