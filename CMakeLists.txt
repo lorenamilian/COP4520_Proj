@@ -12,8 +12,15 @@ endif()
 project ("RocketLaunchPrediction")
 cmake_policy(SET CMP0079 NEW)
 # Include sub-projects.
-add_subdirectory ("RocketLaunchPrediction")
 
+
+add_subdirectory ("RocketLaunchPrediction")
  find_package(Armadillo REQUIRED)
  find_package(OpenBLAS CONFIG REQUIRED)
-target_link_libraries(RocketLaunchPrediction PRIVATE armadillo)
+ find_package(nlohmann_json 3.2.0 REQUIRED)
+ find_package(cpr REQUIRED)
+target_link_libraries(RocketLaunchPrediction PRIVATE 
+    armadillo
+    nlohmann_json::nlohmann_json
+    cpr::cpr
+)
