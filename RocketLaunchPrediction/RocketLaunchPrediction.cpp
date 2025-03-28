@@ -27,14 +27,11 @@ void PrintEqualsForBinary(double decimalNumber) {
     std::cout << std::endl;
 }
 void CompareTimes(double seqTime, double parTime) {
-    std::cout << "Sequential Time: " << seqTime << " ms" << std::endl;
-    std::cout << "Parallel Time: " << parTime << " ms" << std::endl;
-
     if (parTime < seqTime) {
-        std::cout << "Parallel execution was faster by " << seqTime - parTime << " ms.\n";
+        std::cout << "Parallel was approximately " << seqTime / parTime << "x faster.\n";
         std::cout << std::endl;
     } else {
-        std::cout << "Sequential execution was faster by " << parTime - seqTime << " ms.\n";
+        std::cout << "Sequential was approximately " << parTime / seqTime << "x faster.\n";
         std::cout << std::endl;
     }
 }
