@@ -7,15 +7,48 @@
 #include <vector>
 #include <thread>
 #include <mutex>
-
+#include <chrono> // For timing the process
 
 struct CSVData {
     // First column* (S/F) --- *column because csv file gets transposed when read by mlpack
-	// Meaning rows become columns and columns become rows
+    // Meaning rows become columns and columns become rows
     std::vector<std::string> labels;
     // Columns 5-13 (numerical features) --- skipping the text based data
     arma::mat features;
 };
+
+void PrintEqualsForBinary(double decimalNumber) {
+    int integerPart = static_cast<int>(decimalNumber); // Get the integer part
+    std::cout << "|";
+    for (int i = 0; i < integerPart; ++i) {
+        std::cout << "===";
+    }
+    std::cout << "|";
+    std::cout << std::endl;
+}
+void CompareTimes(double seqTime, double parTime) {
+    std::cout << "Sequential Time: " << seqTime << " ms" << std::endl;
+    std::cout << "Parallel Time: " << parTime << " ms" << std::endl;
+
+    if (parTime < seqTime) {
+        std::cout << "Parallel execution was faster by " << seqTime - parTime << " ms.\n";
+        std::cout << std::endl;
+    } else {
+        std::cout << "Sequential execution was faster by " << parTime - seqTime << " ms.\n";
+        std::cout << std::endl;
+    }
+}
+
+void PrintEqualsForBinary(int decimalNumber) {
+    // Convert decimal number to binary using std::bitset (assuming a 32-bit number)
+    std::bitset<32> binary(decimalNumber);
+
+    // Print '=' for each bit in the binary representation
+    for (size_t i = 0; i < binary.size(); ++i) {
+        std::cout << "=";
+    }
+    std::cout << std::endl;
+}
 
 // Structure to store the best hyperparameters found
 struct BestHyperparams {
@@ -49,7 +82,7 @@ CSVData ReadCSV(const std::string& filename) {
         }
 
         // Check if row has fewer than 14 columns; if so, skip it.
-		// This is a simple way to handle any samples with missing data.
+        // This is a simple way to handle any samples with missing data.
         if (row.size() < 14) {
             continue;
         }
@@ -58,7 +91,7 @@ CSVData ReadCSV(const std::string& filename) {
         labels.push_back(row[0]);
 
         // Extract features (columns 5-13)
-		// Skip the first 5 columns because they contain text data.
+        // Skip the first 5 columns because they contain text data.
         std::vector<double> featureRow;
         for (size_t j = 5; j <= 13; ++j) {
             try {
@@ -119,6 +152,37 @@ void EvaluateHyperparameters(const arma::mat& trainFeatures,
     }
 }
 
+double TimerForSequentialHyperparameterSearch(const arma::mat& trainFeatures,
+                                            const arma::Row<size_t>& trainLabels, 
+                                            const arma::mat& testFeatures, 
+                                            const arma::Row<size_t>& testLabels) 
+{
+    // Record start time
+    auto start = std::chrono::high_resolution_clock::now();
+
+    BestHyperparams bestParams;
+
+    std::vector<size_t> numTreesList = {10, 30, 50};
+    std::vector<size_t> minLeafSizeList = {1, 2, 3, 4};
+
+    // Sequential hyperparameter search
+    for (size_t trees : numTreesList) {
+        for (size_t leafSize : minLeafSizeList) {
+            EvaluateHyperparameters(trainFeatures, trainLabels, testFeatures, testLabels, trees, leafSize, bestParams);
+        }
+    }
+
+    // Record end time
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> duration = end - start;
+
+    std::cout << "Sequential hyperparameter search: ("  << duration.count() << "s)  " << std::flush;
+    PrintEqualsForBinary(duration.count());
+    return duration.count();
+}
+
+
+
 // Main function
 int main() {
     // Declare the CSVData struct
@@ -153,11 +217,11 @@ int main() {
 
     // 2. Print Label Mappings
     // Just for reference
-    std::cout << "=== Label Mappings ===" << std::endl;
+    std::cout << "--------------------------------------- Label Mappings --------------------------------------" << std::endl;
     std::cout << "Class 0: S\nClass 1: F\n" << std::endl;
 
     // 3. Normalize and Split Data
-    // Normalizing the data may not be entirely necessary for Random Forests, but it improves the acuracy of the model.
+    // Normalizing the data may not be entirely necessary for Random Forests, but it improves the accuracy of the model.
     arma::mat features = csvData.features;
     features = arma::normalise(features, 2, 0); // L2 normalization
 
@@ -167,7 +231,9 @@ int main() {
     // Split the data into training and testing sets (80% training, 20% testing)
     mlpack::data::Split(features, labels, trainFeatures, testFeatures, trainLabels, testLabels, 0.2);
 
-    // 4. Parallel hyperparameter search
+    // 4. Start timer for hyperparameter search
+    auto start = std::chrono::high_resolution_clock::now();
+
     BestHyperparams bestParams;
     std::vector<std::thread> threads;
 
@@ -188,29 +254,29 @@ int main() {
         t.join();
     }
 
+    // End timer for hyperparameter search
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> duration = end - start;
+
     // Assign the best found hyperparameters
     const size_t numClassesForest = bestParams.numClassesForest;
     const size_t numTrees = bestParams.numTrees;
-    // Minimum number of points in a leaf.
     const size_t minimumLeafSize = bestParams.minimumLeafSize;
 
-
-    std::cout << "Best Hyperparameters Found:\n";
+    std::cout << "--------------------------------- Best Hyperparameters Found --------------------------------\n";
+    std::cout << std::endl;
     std::cout << "Number of Trees: " << numTrees << "\n";
     std::cout << "Minimum Leaf Size: " << minimumLeafSize << "\n";
-
+    
     // 5. Train and Evaluate the Random Forest Model
-    // Create and train the random forest classifier.
     mlpack::RandomForest<> rf;
     rf.Train(trainFeatures, trainLabels, numClassesForest, numTrees, minimumLeafSize);
 
-    // Classify the test set.
+    // Classify the test set
     arma::Row<size_t> predictionsForest;
     rf.Classify(testFeatures, predictionsForest);
 
-
-    // 6. Confusion Matrix and Metrics
-    // This is a table of our model's performance.
+    // Confusion Matrix and Metrics
     arma::Mat<size_t> confusionForest(numClassesForest, numClassesForest, arma::fill::zeros);
     for (size_t i = 0; i < testLabels.n_elem; ++i) {
         confusionForest(testLabels(i), predictionsForest(i))++;
@@ -218,7 +284,8 @@ int main() {
 
     std::vector<std::string> classNames = { "S", "F" };
 
-    std::cout << "\n=== Confusion Matrix - Forest ===" << std::endl;
+    std::cout << "\n--------------------------------- Confusion Matrix - Forest ---------------------------------" << std::endl;
+    std::cout << std::endl;
     std::cout << "          ";
     for (size_t j = 0; j < numClassesForest; ++j) {
         std::cout << "Predicted " << classNames[j] << "\t";
@@ -233,14 +300,19 @@ int main() {
         std::cout << std::endl;
     }
 
+
     // Metrics Calculations
-    arma::vec precisionForest(numClassesForest), recallForest(numClassesForest), f1Forest(numClassesForest);
+    arma::vec precisionForest(numClassesForest, arma::fill::zeros);
+    arma::vec recallForest(numClassesForest, arma::fill::zeros);
+    arma::vec f1Forest(numClassesForest, arma::fill::zeros);
+    
     for (size_t c = 0; c < numClassesForest; ++c) {
         double tp = confusionForest(c, c);
         double fp = arma::accu(confusionForest.col(c)) - tp;
         double fn = arma::accu(confusionForest.row(c)) - tp;
+        double tn = arma::accu(confusionForest) - tp - fp - fn;
 
-        // Handle division by zero
+        // Calculate precision, recall, and F1 score for each class
         if (tp + fp > 0) {
             precisionForest[c] = tp / (tp + fp);
         }
@@ -262,15 +334,14 @@ int main() {
             f1Forest[c] = 0.0;
         }
     }
-
     // Print classification report
-    std::cout << "\n=== Forest Classification Report ===" << std::endl;
+    std::cout << "\n------------------------------- Forest Classification Report --------------------------------" << std::endl;
+    std::cout << std::endl;
     for (size_t c = 0; c < numClassesForest; ++c) {
         std::cout << "Class " << classNames[c] << " (" << c << "):\n"
             << "  Precision: " << precisionForest[c] << "\n"
             << "  Recall:    " << recallForest[c] << "\n"
-            << "  F1-Score:  " << f1Forest[c] << "\n"
-            << "----------------------------" << std::endl;
+            << "  F1-Score:  " << f1Forest[c] << "\n";
     }
 
     // Overall accuracy
@@ -278,10 +349,20 @@ int main() {
         / static_cast<double>(testLabels.n_elem);
     std::cout << "\nOverall Accuracy - Forest: " << accuracyForest << std::endl;
 
-    // Wait for user input before exiting
+
+    std::cout << "\n-----------------Parallel vs. Sequential: Hyperparameter Search Time Analysis-----------------" << std::endl;
+    std::cout << std::endl;
+    // Print the duration of the hyperparameter search
+    std::cout << "Parallel hyperparameter search: (" << duration.count() << "s)    " << std::flush;
+    PrintEqualsForBinary(duration.count());
+
+    double SeqTime = TimerForSequentialHyperparameterSearch(trainFeatures, trainLabels, testFeatures, testLabels);
+    std::cout << std::endl;
+    CompareTimes(SeqTime, duration.count());
+
+    std::cout << std::endl;
     std::cout << "Press Enter to exit..." << std::endl;
     std::cin.get();
-
 
     return 0;
 }
