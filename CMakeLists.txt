@@ -15,27 +15,26 @@ if(APPLE)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=deprecated-declarations")
 endif()
 
-# Add FTXUI from GitHub using FetchContent
-include(FetchContent)
-FetchContent_Declare(ftxui
-  GIT_REPOSITORY https://github.com/ArthurSonzogni/FTXUI
-  GIT_TAG v3.0.0
-)
 # Configure FTXUI to ignore deprecation warnings
-set(FTXUI_ENABLE_DEPRECATION_WARNINGS OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(ftxui)
-
 # Find required packages
 find_package(Armadillo REQUIRED)
 find_package(OpenBLAS CONFIG REQUIRED)
 find_package(nlohmann_json 3.2.0 REQUIRED)
 find_package(cpr REQUIRED)
+find_package(ftxui 5 REQUIRED)
 
 # Add the executable target (main.cpp should be your source file)
 add_executable(RocketLaunchPrediction src/main.cpp)
 
+add_executable(TerminalTest src/terminalInterface.cpp)
 # Set C++17 standard explicitly since FTXUI requires it
 target_compile_features(RocketLaunchPrediction PRIVATE cxx_std_17)
+target_compile_features(TerminalTest PRIVATE cxx_std_17)
+target_link_libraries(TerminalTest PRIVATE
+    ftxui::screen
+    ftxui::dom
+    ftxui::component
+)
 
 # Link libraries
 target_link_libraries(RocketLaunchPrediction PRIVATE

@@ -1,46 +1,31 @@
-// TODO: build a tui
-#include <iostream>
-#include <string>
-#include "ftxui/component/component.hpp"
-#include "ftxui/component/screen_interactive.hpp"
-#include "ftxui/dom/elements.hpp"
+#include <ftxui/dom/elements.hpp>
+#include <ftxui/component/screen_interactive.hpp>
+#include <ftxui/component/component.hpp>
+#include <ftxui/component/component_options.hpp>
+#include <vector>
 
 using namespace ftxui;
 
 int main() {
-    // The counter value
-    int counter = 0;
 
-    // Components
-    Component increment_button = Button("Increment", [&] { counter++; });
-    Component decrement_button = Button("Decrement", [&] { counter--; });
-    Component quit_button = Button("Quit", screen.ExitLoopClosure());
+  auto screen = ScreenInteractive::TerminalOutput();
 
-    // Arrange components in a horizontal layout
-    auto buttons = Container::Horizontal({
-        increment_button,
-        decrement_button,
-        quit_button,
-    });
+  std::vector<std::string> entries = {
+    "Entry 1",
+    "Entry 2",
+    "Entry 3"
+  };
 
-    // Define the rendering function - how the UI will look
-    auto renderer = Renderer(buttons, [&] {
-        return vbox({
-            text("FTXUI Counter Example") | bold | center,
-            text("Value: " + std::to_string(counter)) | center,
-            hbox({
-                increment_button->Render(),
-                separator(),
-                decrement_button->Render(),
-                separator(),
-                quit_button->Render(),
-            }),
-        }) | border;
-    });
+  int selected = 0;
 
-    // Start the interactive screen
-    auto screen = ScreenInteractive::TerminalOutput();
-    screen.Loop(renderer);
+  MenuOption option;
+  option.on_enter = screen.ExitLoopClosure();
+  auto menu = Menu(&entries, &selected, option);
 
-    return 0;
+  screen.Loop(menu);
+
+  std::cout << "Selected element = " << selected << std::endl;
+
+  return EXIT_SUCCESS;
 }
+
