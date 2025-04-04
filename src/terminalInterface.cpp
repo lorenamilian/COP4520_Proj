@@ -8,7 +8,7 @@ using namespace ftxui;
 
 int main() {
 
-  auto screen = ScreenInteractive::TerminalOutput();
+  auto screen = ScreenInteractive::Fullscreen();
 
   std::vector<std::string> entries = {
     "Entry 1",
