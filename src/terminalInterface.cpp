@@ -1,12 +1,16 @@
+#include <algorithm>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/screen_interactive.hpp>
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/screen/color.hpp>
 #include "RocketLaunchPrediction.h"
+// #include <future>
 #include <mlpack/methods/random_forest/random_forest.hpp>
+#include <random>
 #include <tuple>
 #include <vector>
 #include <string>
+#include <nlohmann/json.hpp>
 
 using namespace ftxui;
 
@@ -22,15 +26,19 @@ int main() {
   std::vector<std::string> model_output;
   mlpack::RandomForest<> rf;
   bool model_trained = false;
+  std::tuple<std::vector<std::string>, std::vector<json>> tuple_tmp = BuildLaunchList();
+  std::vector<nlohmann::json> json;
+
 
   int selected_tab = 0;
 
   std::vector<std::string> menu_entries = {
     "Train Model",
     "Make Predictions",
-    "Evaluate Model",
+    "Get Upcoming Launches",
     "Quit"
   };
+
   int main_menu_selected = 0;
   auto main_menu = Menu(&menu_entries, &main_menu_selected);
 
@@ -42,6 +50,12 @@ int main() {
   };
   int prediction_selected = 0;
   auto prediction_menu = Menu(&launch_pad_entries, &prediction_selected);
+
+  std::vector<std::string> upcoming_launch_entries = get<0>(tuple_tmp);
+  upcoming_launch_entries.push_back("Back to Main Menu");
+
+  int launch_selected = 0;
+  auto launch_menu = Menu(&upcoming_launch_entries, &launch_selected);
 
   // Renderer for the output box
   auto output_box = Renderer([&] {
@@ -68,10 +82,17 @@ int main() {
     }),
     Renderer(prediction_menu, [&] {
       return vbox({
-        text("PREDICTION SUBMENU") | bold | center | color(Color::Cyan),
-        text("Select Launch Pad:") | center,
+        text("SELECT PREDICTION") | bold | center | color(Color::Cyan),
         separator(),
         prediction_menu->Render(),
+        filler(),
+      });
+    }),
+    Renderer(launch_menu, [&] {
+      return vbox({
+        text("SELECT LAUNCH") | bold | center | color(Color::OrangeRed1),
+        separator(),
+        launch_menu->Render(),
         filler(),
       });
     })
@@ -79,12 +100,13 @@ int main() {
 
   // Handle tab key events and menu selections
   auto menu_with_action = CatchEvent(menu_container, [&](Event event) {
-    if (event == Event::Tab && model_trained) {
-      selected_tab = (selected_tab + 1) % 2;
+    if (event == Event::Tab) {
+      selected_tab = (selected_tab + 1) % 3;
       return true;
     }
+    // FIXME: accessing the prediction menu should without trained model should be removed before release
     if (event == Event::TabReverse) {
-      selected_tab = (selected_tab - 1 + 2) % 2;
+      selected_tab = (selected_tab - 1 + 3) % 3;
       return true;
     }
     if (event == Event::Return) {
@@ -114,14 +136,16 @@ int main() {
           case 2:
             if (!model_trained) {
               model_output.clear();
-              model_output.push_back("Error: Please train the model first.");
+              model_output.push_back("WARN: Predictions unavailable Model must be trained.");
+              selected_tab = 2;
             } else {
               model_output.clear();
-              model_output.push_back("Evaluation mode selected");
+              json = get<1>(tuple_tmp);
+              selected_tab = 2;
             }
             break;
           case 3:
-            screen.ExitLoopClosure();
+            screen.ExitLoopClosure()();
             break;
         }
       } else if (selected_tab == 1) {
@@ -130,10 +154,22 @@ int main() {
           model_output.clear();
         } else {
           model_output.clear();
-          model_output.push_back("Selected launch pad: " + launch_pad_entries[prediction_selected]);
+          // model_output.push_back("Selected launch pad: " + launch_pad_entries[prediction_selected]);
           if (model_trained) {
             model_output.push_back("Making predictions for " + launch_pad_entries[prediction_selected] + "...");
             menuOption1(rf, prediction_selected, model_output);
+          }
+        }
+      } else if (selected_tab == 2) {
+        if (launch_selected == upcoming_launch_entries.size() - 1) {
+          selected_tab = 0;
+          model_output.clear();
+        } else {
+          if (model_trained) {
+            model_output.push_back("Making predictions for " + upcoming_launch_entries[launch_selected] + "...");
+            model_output.push_back(GetScheduledLaunchPrediction(rf, json[launch_selected]));
+          } else {
+            model_output.push_back("WARN: Predictions unavailable Model must be trained.");
           }
         }
       }
@@ -147,9 +183,16 @@ int main() {
   auto right_container = Container::Vertical({ output_box });
   auto main_container = Container::Horizontal({ left_container, right_container });
 
+ Decorator left_con_size;
+  if (screen.dimx() < 180) {
+    left_con_size = size(WIDTH, ftxui::LESS_THAN, 30);
+  } else {
+    left_con_size = size(WIDTH, ftxui::GREATER_THAN, 180);
+  }
+
   auto split_view = Renderer(main_container, [=] {
     return hbox({
-      left_container->Render() | size(WIDTH, LESS_THAN, 30) | border,
+      left_container->Render() | left_con_size | border,
       right_container->Render() | flex | border,
     });
   });

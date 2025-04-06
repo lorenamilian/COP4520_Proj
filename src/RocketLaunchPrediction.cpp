@@ -790,11 +790,11 @@ std::tuple<std::vector<std::string>, std::vector<json>> BuildLaunchList() {
         std::string rocket = launches[i].value("rocket", json())
                                  .value("configuration", json())
                                  .value("name", "N/A");
-        std::string padName = launches[i].contains("pad") 
+        std::string padName = launches[i].contains("pad")
                                 ? launches[i]["pad"].value("name", "N/A")
                                 : "N/A";
         std::string windowStart = launches[i].value("window_start", "N/A");
-        std::string formatted = std::to_string(i + 1) + 
+        std::string formatted = std::to_string(i + 1) +
             ") " + agency + " | " + rocket + " | Pad: " + padName +
             " | Window: " + windowStart;
         launchList.push_back(formatted);
@@ -813,7 +813,7 @@ std::string GetScheduledLaunchPrediction(mlpack::RandomForest<>& rf, const json&
     std::string windowStart = launch.value("window_start", "");
     if (windowStart.size() >= 16)
         windowStart = windowStart.substr(0, 16);
-    
+
     // get forecast weather features
     arma::vec features = GetWeatherFeaturesForLocation(lat, lon, windowStart);
 
@@ -831,7 +831,7 @@ std::string GetScheduledLaunchPrediction(mlpack::RandomForest<>& rf, const json&
     rf.Classify(liveFeaturesMat, prediction);
 
     std::string predStr = (prediction(0) == 0) ? "Launch Likely" : "Launch Scrubbed";
-    return "Scheduled lauinch at " + windowStart + ": " + predStr;
+    return "Scheduled launch at " + windowStart + ": " + predStr;
 
 }
 
