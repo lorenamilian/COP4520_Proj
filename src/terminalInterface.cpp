@@ -184,15 +184,15 @@ int main() {
   auto main_container = Container::Horizontal({ left_container, right_container });
 
  Decorator left_con_size;
-  if (screen.dimx() < 180) {
-    left_con_size = size(WIDTH, ftxui::LESS_THAN, 30);
+  if (screen.dimx() < 360) {
+    left_con_size = size(WIDTH, ftxui::LESS_THAN, 60);
   } else {
-    left_con_size = size(WIDTH, ftxui::GREATER_THAN, 180);
+    left_con_size = size(WIDTH, ftxui::GREATER_THAN, 60);
   }
 
   auto split_view = Renderer(main_container, [=] {
     return hbox({
-      left_container->Render() | left_con_size | border,
+      left_container->Render() | flex | left_con_size | border,
       right_container->Render() | flex | border,
     });
   });
