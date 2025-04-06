@@ -821,13 +821,14 @@ std::string GetScheduledLaunchPrediction(mlpack::RandomForest<>& rf, const json&
     features(0) *= 0.01; // Scale the latitude feature
     features(1) *= 0.01; // Scale the longitude feature
 
+    arma::mat liveFeaturesMat = features;
+
     // normalize in same way as training data
-    features = arma::normalise(features, 2, 0);
+    features = arma::normalise(liveFeaturesMat, 2, 0);
 
     // run prediction
     arma::Row<size_t> prediction;
-    arma::mat featureMat = features; // convert vector to matrix
-    rf.Classify(featureMat, prediction);
+    rf.Classify(liveFeaturesMat, prediction);
 
     std::string predStr = (prediction(0) == 0) ? "Launch Likely" : "Launch Scrubbed";
     return "Scheduled lauinch at " + windowStart + ": " + predStr;
