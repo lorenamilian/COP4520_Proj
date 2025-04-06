@@ -1,31 +1,48 @@
-#include <ftxui/dom/elements.hpp>
-#include <ftxui/component/screen_interactive.hpp>
-#include <ftxui/component/component.hpp>
-#include <ftxui/component/component_options.hpp>
-#include <vector>
+// Copyright 2022 Arthur Sonzogni. All rights reserved.
+// Use of this source code is governed by the MIT license that can be found in
+// the LICENSE file.
+#include <memory>  // for allocator, __shared_ptr_access, shared_ptr
+#include <string>  // for to_string, operator+
+
+#include "ftxui/component/captured_mouse.hpp"  // for ftxui
+#include "ftxui/component/component.hpp"       // for Button, Renderer, Vertical
+#include "ftxui/component/component_base.hpp"  // for ComponentBase
+#include "ftxui/component/component_options.hpp"   // for ButtonOption
+#include "ftxui/component/screen_interactive.hpp"  // for ScreenInteractive
+#include "ftxui/dom/elements.hpp"  // for operator|, text, Element, hbox, separator, size, vbox, border, frame, vscroll_indicator, HEIGHT, LESS_THAN
+#include "ftxui/screen/color.hpp"  // for Color, Color::Default, Color::GrayDark, Color::White
+#include "RocketLaunchPrediction.h"
 
 using namespace ftxui;
 
 int main() {
+  int counter = 0;
+  auto on_click = [&] { TrainModel(); };
 
-  auto screen = ScreenInteractive::Fullscreen();
+  auto style = ButtonOption::Animated(Color::Default, Color::GrayDark,
+                                      Color::Default, Color::White);
 
-  std::vector<std::string> entries = {
-    "Entry 1",
-    "Entry 2",
-    "Entry 3"
-  };
+  auto container = Container::Vertical({});
 
-  int selected = 0;
+  auto button = Button("Train the model?", on_click, style);
 
-  MenuOption option;
-  option.on_enter = screen.ExitLoopClosure();
-  auto menu = Menu(&entries, &selected, option);
+  container->Add(button);
 
-  screen.Loop(menu);
+  auto renderer = Renderer(container, [&] {
+    return vbox({
+               hbox({
+                   text("Counter:"),
+                   text(std::to_string(counter)),
+               }),
+               separator(),
+               container->Render() | vscroll_indicator | frame |
+                   size(HEIGHT, LESS_THAN, 20),
+           }) |
+           border;
+  });
 
-  std::cout << "Selected element = " << selected << std::endl;
+  auto screen = ScreenInteractive::FitComponent();
+  screen.Loop(renderer);
 
-  return EXIT_SUCCESS;
+  return 0;
 }
-
