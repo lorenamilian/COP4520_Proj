@@ -1,9 +1,12 @@
+#include <format>
 #include <mlpack/core.hpp>
 #include <mlpack/methods/random_forest/random_forest.hpp>
 #include <mlpack/core/data/split_data.hpp>
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <string>
+#include <tuple>
 #include <vector>
 #include <thread>
 #include <mutex>
@@ -42,14 +45,16 @@ std::string GetFutureISO8601(int daysAhead) {
 
 
 // Function to print the equals sign for binary representation (double)
-void PrintEqualsForBinary(double decimalNumber) {
-    int integerPart = static_cast<int>(decimalNumber); // Get the integer part
-    std::cout << "|";
-    for (int i = 0; i < integerPart; ++i) {
-        std::cout << "===";
-    }
-    std::cout << "|";
-    std::cout << std::endl;
+void PrintEqualsForBinary(double decimalNumber, std::vector<string>& training_output) {
+  int integerPart = static_cast<int>(decimalNumber); // Get the integer part
+  stringstream ss;
+  ss << "|";
+  for (int i = 0; i < integerPart; ++i) {
+    ss << "===";
+  }
+  ss << "|";
+  training_output.push_back("");
+  training_output.push_back(ss.str());
 }
 
 
@@ -67,15 +72,15 @@ void PrintEqualsForBinary(int decimalNumber) {
 
 
 // Function to compare sequential and parallel execution times
-void CompareTimes(double seqTime, double parTime) {
-    if (parTime < seqTime) {
-        std::cout << "Parallel was approximately " << seqTime / parTime << "x faster.\n";
-        std::cout << std::endl;
-    }
-    else {
-        std::cout << "Sequential was approximately " << parTime / seqTime << "x faster.\n";
-        std::cout << std::endl;
-    }
+void CompareTimes(double seqTime, double parTime, std::vector<string>& training_output) {
+  if (parTime < seqTime) {
+    training_output.push_back(std::format("Parallel was approximately {}x faster.", seqTime/parTime));
+    training_output.push_back("");
+  }
+  else {
+    training_output.push_back(std::format("Sequential was approximately {}x faster.", parTime/ seqTime));
+    training_output.push_back("");
+  }
 }
 
 
@@ -201,7 +206,8 @@ void EvaluateHyperparameters(const arma::mat& trainFeatures,
 double TimerForSequentialHyperparameterSearch(const arma::mat& trainFeatures,
     const arma::Row<size_t>& trainLabels,
     const arma::mat& testFeatures,
-    const arma::Row<size_t>& testLabels)
+    const arma::Row<size_t>& testLabels,
+    std::vector<string>& training_output)
 {
     // Record start time
     auto start = std::chrono::high_resolution_clock::now();
@@ -222,8 +228,8 @@ double TimerForSequentialHyperparameterSearch(const arma::mat& trainFeatures,
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> duration = end - start;
 
-    std::cout << "Sequential hyperparameter search: (" << duration.count() << "s)  " << std::flush;
-    PrintEqualsForBinary(duration.count());
+    training_output.push_back(std::format("Sequential hyperparameter search: ({}s)", duration.count()));
+    // PrintEqualsForBinary(duration.count(), training_output);
     return duration.count();
 
 }
@@ -237,8 +243,12 @@ double TimerForSequentialHyperparameterSearch(const arma::mat& trainFeatures,
 // MAIN FUNCTION TO TRAIN MODEL
 // Trains the Random Forest model using the CSV data, performs hyperparmeter search,
 // prints performance metrics, and returns the trained model
-mlpack::RandomForest<> TrainModel() {
-    std::cout << "Loading training data..." << std::endl;
+std::tuple<mlpack::RandomForest<>, vector<string>> TrainModel() {
+
+  // WARN: testing to see if I can use vector of strings to redirect output.
+  std::vector<std::string> training_output;
+
+    // std::cout << "Loading training data..." << std::endl;
 	CSVData csvData = ReadCSV("1970DuplicatedFailTest.csv");
 
 
@@ -260,8 +270,8 @@ mlpack::RandomForest<> TrainModel() {
 
     // 2. Print Label Mappings
     // Just for reference
-    std::cout << "--------------------------------------- Label Mappings --------------------------------------" << std::endl;
-    std::cout << "Class 0: S\nClass 1: F\n" << std::endl;
+  training_output.push_back("--------------------------------------- Label Mappings --------------------------------------\n");
+  training_output.push_back("Class 0: S\nClass 1: F\n");
 
 
     // 3. Normalize and Split Data
@@ -314,10 +324,8 @@ mlpack::RandomForest<> TrainModel() {
     // Minimum number of points in a leaf.
     const size_t minimumLeafSize = bestParams.minimumLeafSize;
 
-    std::cout << "--------------------------------- Best Hyperparameters Found --------------------------------\n";
-    std::cout << std::endl;
-    std::cout << "Number of Trees: " << numTrees << "\n";
-    std::cout << "Minimum Leaf Size: " << minimumLeafSize << "\n";
+  training_output.push_back(std::format("--------------------------------- Best Hyperparameters Found --------------------------------"));
+  training_output.push_back(std::format("Number of Trees: {}\nMinimum Leaf Size: {}", numTrees, minimumLeafSize));
 
 
     // 5. Train and Evaluate the Random Forest Model
@@ -338,40 +346,40 @@ mlpack::RandomForest<> TrainModel() {
 
     std::vector<std::string> classNames = { "S", "F" };
 
-    std::cout << "\n--------------------------------- Confusion Matrix - Forest ---------------------------------" << std::endl;
-    std::cout << std::endl;
-    std::cout << "          ";
+  training_output.push_back(std::format("\n--------------------------------- Confusion Matrix - Forest ---------------------------------\n\n          "));
+  for (size_t j = 0; j < numClassesForest; ++j) {
+    training_output.push_back(std::format("Predicted {}", classNames[j]));
+  }
+
+  training_output.push_back("\n");
+
+  for (size_t i = 0; i < numClassesForest; ++i) {
+
+    training_output.push_back(string("Actual " + classNames[i] + ": \t"));
     for (size_t j = 0; j < numClassesForest; ++j) {
-        std::cout << "Predicted " << classNames[j] << "\t";
+      training_output.push_back(std::format("{}\t\t", confusionForest(i, j)));
     }
-    std::cout << std::endl;
+    training_output.push_back("\n");
+  }
 
-    for (size_t i = 0; i < numClassesForest; ++i) {
-        std::cout << "Actual " << classNames[i] << ":\t";
-        for (size_t j = 0; j < numClassesForest; ++j) {
-            std::cout << confusionForest(i, j) << "\t\t";
-        }
-        std::cout << std::endl;
+  // Metrics Calculations
+  arma::vec precisionForest(numClassesForest, arma::fill::zeros);
+  arma::vec recallForest(numClassesForest, arma::fill::zeros);
+  arma::vec f1Forest(numClassesForest, arma::fill::zeros);
+
+  for (size_t c = 0; c < numClassesForest; ++c) {
+    double tp = confusionForest(c, c);
+    double fp = arma::accu(confusionForest.col(c)) - tp;
+    double fn = arma::accu(confusionForest.row(c)) - tp;
+    double tn = arma::accu(confusionForest) - tp - fp - fn;
+
+    // Calculate precision, recall, and F1 score for each class
+    if (tp + fp > 0) {
+      precisionForest[c] = tp / (tp + fp);
     }
-
-    // Metrics Calculations
-    arma::vec precisionForest(numClassesForest, arma::fill::zeros);
-    arma::vec recallForest(numClassesForest, arma::fill::zeros);
-    arma::vec f1Forest(numClassesForest, arma::fill::zeros);
-
-    for (size_t c = 0; c < numClassesForest; ++c) {
-        double tp = confusionForest(c, c);
-        double fp = arma::accu(confusionForest.col(c)) - tp;
-        double fn = arma::accu(confusionForest.row(c)) - tp;
-        double tn = arma::accu(confusionForest) - tp - fp - fn;
-
-        // Calculate precision, recall, and F1 score for each class
-        if (tp + fp > 0) {
-            precisionForest[c] = tp / (tp + fp);
-        }
-        else {
-            precisionForest[c] = 0.0;
-        }
+    else {
+      precisionForest[c] = 0.0;
+    }
 
         if (tp + fn > 0) {
             recallForest[c] = tp / (tp + fn);
@@ -389,38 +397,32 @@ mlpack::RandomForest<> TrainModel() {
     }
 
     // Print classification report
-    std::cout << "\n------------------------------- Forest Classification Report --------------------------------" << std::endl;
-    std::cout << std::endl;
+    training_output.push_back("\n------------------------------- Forest Classification Report --------------------------------\n");
     for (size_t c = 0; c < numClassesForest; ++c) {
-        std::cout << "Class " << classNames[c] << " (" << c << "):\n"
-            << "  Precision: " << precisionForest[c] << "\n"
-            << "  Recall:    " << recallForest[c] << "\n"
-            << "  F1-Score:  " << f1Forest[c] << "\n";
+
+    training_output.push_back(std::format("Class {} ({})",classNames[c], c));
+    training_output.push_back(std::format("Precision: {}\n  Recall: {}\n", precisionForest[c], recallForest[c]));
+    training_output.push_back(std::format("F1-Score: {}\n", f1Forest[c]));
     }
 
     // Overall accuracy
     double accuracyForest = arma::accu(predictionsForest == testLabels)
         / static_cast<double>(testLabels.n_elem);
-    std::cout << "\nOverall Accuracy - Forest: " << accuracyForest << std::endl;
+    training_output.push_back(string("\nOverall Accuracy - Forest: {}\n", accuracyForest));
 
 
-    std::cout << "\n-----------------Parallel vs. Sequential: Hyperparameter Search Time Analysis-----------------" << std::endl;
-    std::cout << std::endl;
+  training_output.push_back("\n-----------------Parallel vs. Sequential: Hyperparameter Search Time Analysis-----------------\n\n");
     // Print the duration of the hyperparameter search
-    std::cout << "Parallel hyperparameter search: (" << duration.count() << "s)    " << std::flush;
-    PrintEqualsForBinary(duration.count());
-
-    double SeqTime = TimerForSequentialHyperparameterSearch(trainFeatures, trainLabels, testFeatures, testLabels);
-    std::cout << std::endl;
-    CompareTimes(SeqTime, duration.count());
-
-    std::cout << std::endl;
-    std::cout << "Press Enter to continue..." << std::endl;
-    std::cin.get();
+    training_output.push_back(std::format("Parallel hyperparameter search: ({}s)", duration.count()));
 
 
-	// Return the trained Random Forest model
-    return rf;
+  // TODO: Need to figure this out
+    // PrintEqualsForBinary(duration.count(), training_output);
+
+    // TODO: Figure this out too
+    double SeqTime = TimerForSequentialHyperparameterSearch(trainFeatures, trainLabels, testFeatures, testLabels, training_output);
+    CompareTimes(SeqTime, duration.count(), training_output);
+    return make_tuple(rf, training_output);
 }
 
 

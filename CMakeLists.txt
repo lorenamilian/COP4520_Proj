@@ -28,8 +28,8 @@ add_executable(RocketLaunchPrediction src/main.cpp)
 
 add_executable(TerminalTest src/terminalInterface.cpp src/RocketLaunchPrediction.cpp)
 # Set C++17 standard explicitly since FTXUI requires it
-target_compile_features(RocketLaunchPrediction PRIVATE cxx_std_17)
-target_compile_features(TerminalTest PRIVATE cxx_std_17)
+target_compile_features(RocketLaunchPrediction PRIVATE cxx_std_20)
+target_compile_features(TerminalTest PRIVATE cxx_std_20)
 target_link_libraries(TerminalTest PRIVATE
     armadillo
     nlohmann_json::nlohmann_json
