@@ -778,6 +778,63 @@ void menuOption2(mlpack::RandomForest<>& rf, vector<string> output) {
 
 }
 
+// call GetUpcomingLaunches() and build a list of launches that returns
+// a vector of formatted strings each with a list of launch details
+// and the corresponding vector of JSON objects
+std::tuple<std::vector<std::string>, std::vector<json>> BuildLaunchList() {
+    std::vector<json> launches = GetUpcomingLaunches();
+    std::vector<std::string> launchList;
+    for (size_t i = 0; i < launches.size(); ++i) {
+        std::string agency = launches[i].value("launch_service_provider", json())
+                                 .value("name", "N/A");
+        std::string rocket = launches[i].value("rocket", json())
+                                 .value("configuration", json())
+                                 .value("name", "N/A");
+        std::string padName = launches[i].contains("pad") 
+                                ? launches[i]["pad"].value("name", "N/A")
+                                : "N/A";
+        std::string windowStart = launches[i].value("window_start", "N/A");
+        std::string formatted = std::to_string(i + 1) + 
+            ") " + agency + " | " + rocket + " | Pad: " + padName +
+            " | Window: " + windowStart;
+        launchList.push_back(formatted);
+    }
+    return std::make_tuple(launchList, launches);
+}
+
+// take trained model and selected launch JSON and extract pad coords
+// and launch window start time, then call GetWeatherFeaturesForLocation()
+// to get the weather features for the launch pad at the time of launch
+// and run the prediction using the trained model
+std::string GetScheduledLaunchPrediction(mlpack::RandomForest<>& rf, const json& launch) {
+    // get pad coords
+    auto [lat, lon] = GetPadCoordinates(launch);
+    // get launch window start time
+    std::string windowStart = launch.value("window_start", "");
+    if (windowStart.size() >= 16)
+        windowStart = windowStart.substr(0, 16);
+    
+    // get forecast weather features
+    arma::vec features = GetWeatherFeaturesForLocation(lat, lon, windowStart);
+
+    //scale lat and lon to minimize impact on prediction
+    features(0) *= 0.01; // Scale the latitude feature
+    features(1) *= 0.01; // Scale the longitude feature
+
+    // normalize in same way as training data
+    features = arma::normalise(features, 2, 0);
+
+    // run prediction
+    arma::Row<size_t> prediction;
+    arma::mat featureMat = features; // convert vector to matrix
+    rf.Classify(featureMat, prediction);
+
+    std::string predStr = (prediction(0) == 0) ? "Launch Likely" : "Launch Scrubbed";
+    return "Scheduled lauinch at " + windowStart + ": " + predStr;
+
+}
+
+
 
 
 
