@@ -17,3 +17,4 @@ using namespace std;
 
 // TODO: Reference additional headers your program requires here.
 std::tuple<mlpack::RandomForest<>, vector<string>> TrainModel();
+void menuOption1(mlpack::RandomForest<>& rf,int pad_choice, vector<string>& output);

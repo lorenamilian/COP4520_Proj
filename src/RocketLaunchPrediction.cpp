@@ -442,15 +442,15 @@ std::tuple<mlpack::RandomForest<>, vector<string>> TrainModel() {
 arma::vec GetWeatherFeaturesForLaunchPad(int pad) {
     // Coordinates for the launch pads.
     double lat, lon;
-    if (pad == 1) { // Cape Canaveral
+    if (pad == 0) { // Cape Canaveral
         lat = 28.5623;
         lon = -80.5774;
     }
-    else if (pad == 2) { // Vandenberg Air Force Base
+    else if (pad == 1) { // Vandenberg Air Force Base
         lat = 34.7420;
         lon = -120.5724;
     }
-    else if (pad == 3) { // Baikonur Cosmodrome
+    else if (pad == 2) { // Baikonur Cosmodrome
         lat = 45.9654;
         lon = 63.3056;
     }
@@ -651,44 +651,25 @@ std::pair<double, double> GetPadCoordinates(const json& launch) {
 //=========================== Menu Options Functions =================================//
 
 // Option 1: Test current weather for a specific launch pad
-void menuOption1(mlpack::RandomForest<>& rf) {
-    std::cout << "\n=== Launch Prediction Interface ===" << std::endl;
-    std::cout << "Select a launch pad:" << std::endl;
-    std::cout << "1) Cape Canaveral" << std::endl;
-    std::cout << "2) Vandenberg Air Force Base" << std::endl;
-    std::cout << "3) Baikonur Cosmodrome" << std::endl;
-    std::cout << "Enter your choice (1-3, or 0 to cancel): ";
-    int padChoice;
-	std::cin >> padChoice;
-	if (padChoice == 0) {
-		return;
-	}
-	if (padChoice < 1 || padChoice > 3) {
-		std::cout << "Invalid choice. Returning to Main Menu." << std::endl;
-		return;
-	}
-    std::cout << "Fetching current weather data for the selected launch pad..." << std::endl;
-    arma::mat liveFeatures = GetWeatherFeaturesForLaunchPad(padChoice);
+void menuOption1(mlpack::RandomForest<>& rf, int pad_choice, vector<string>& output) {
+    arma::mat liveFeatures = GetWeatherFeaturesForLaunchPad(pad_choice);
     if (liveFeatures.n_elem == 0) {
         std::cout << "Failed to retrieve weather data. Please try again later." << std::endl;
         return;
     }
 
-
-
-
-
     // --- Display the weather data (un-normalized) ---
-    std::cout << "\nCurrent Weather Data:" << std::endl;
-    std::cout << "Latitude: " << liveFeatures(0) << std::endl;
-    std::cout << "Longitude: " << liveFeatures(1) << std::endl;
-    std::cout << "Dew Point (2m): " << liveFeatures(2) << std::endl;
-    std::cout << "Surface Pressure: " << liveFeatures(3) << std::endl;
-    std::cout << "Cloud Cover: " << liveFeatures(4) << std::endl;
-    std::cout << "Wind Speed (10m): " << liveFeatures(5) << std::endl;
-    std::cout << "Wind Speed (100m): " << liveFeatures(6) << std::endl;
-    std::cout << "Wind Gusts (10m): " << liveFeatures(7) << std::endl;
-    std::cout << "Boundary Layer Height: " << liveFeatures(8) << std::endl;
+    output.push_back(std::format("\nCurrent Weather Data:"));
+    output.push_back(std::format("Latitude: {}", liveFeatures[0]));
+    output.push_back(std::format("Longitude: {}", liveFeatures[1]));
+    output.push_back(std::format("Dew Point (2m): {}", liveFeatures[2]));
+    output.push_back(std::format("Surface Pressure: {}", liveFeatures[3]));
+    output.push_back(std::format("Cloud Cover: {}", liveFeatures[4]));
+    output.push_back(std::format("Wind Speed (10m): {}", liveFeatures[5]));
+    output.push_back(std::format("Wind Speed (100m): {}", liveFeatures[6]));
+    output.push_back(std::format("Wind Gusts (10m): {}", liveFeatures[7]));
+    output.push_back(std::format("Boundary Layer Height: {}", liveFeatures[8]));
+
     // Normalize the live features in the same way as training.
     liveFeatures = arma::normalise(liveFeatures, 2, 0);
 
@@ -706,20 +687,19 @@ void menuOption1(mlpack::RandomForest<>& rf) {
     rf.Classify(liveFeatures, livePrediction);
 
 
-    std::cout << "\nPrediction for the selected launch pad: ";
-    if (livePrediction(0) == 0)
-        std::cout << "Launch Likely" << std::endl;
-    else
-        std::cout << "Launch Scrubbed" << std::endl;
-
-
-
+  output.push_back(std::format("\nPrediction for the selected launch pad: "));
+  if (livePrediction(0) == 0)
+    output.push_back(std::format("Launch Likely"));
+  else
+    output.push_back(std::format("Launch Scrubbed"));
 }
 
 
+// FIXME: There is option to pick a scheduled launch this definitely won't work with current menu setup
 // Option 2: Select a scheduled launch from The Space Devs API
-void menuOption2(mlpack::RandomForest<>& rf) {
-    std::cout << "\nFetching upcoming launches from The Space Devs API..." << std::endl;
+void menuOption2(mlpack::RandomForest<>& rf, vector<string> output) {
+
+    output.push_back(std::format("\nFetching upcoming launches from The Space Devs API..."));
     std::vector<json> launches = GetUpcomingLaunches();
 
     if (launches.empty()) {
