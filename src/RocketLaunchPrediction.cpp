@@ -325,7 +325,8 @@ std::tuple<mlpack::RandomForest<>, vector<string>> TrainModel() {
     const size_t minimumLeafSize = bestParams.minimumLeafSize;
 
   training_output.push_back(std::format("--------------------------------- Best Hyperparameters Found --------------------------------"));
-  training_output.push_back(std::format("Number of Trees: {}\nMinimum Leaf Size: {}", numTrees, minimumLeafSize));
+  training_output.push_back(std::format("Number of Trees: {}", numTrees));
+  training_output.push_back(std::format("Minimum Leaf Size: {}", minimumLeafSize));
 
 
     // 5. Train and Evaluate the Random Forest Model
